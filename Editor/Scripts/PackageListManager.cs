@@ -19,7 +19,6 @@ namespace ActionFit.PackageInstaller
         {
             "https://github.com/HuiSungz/UnityProjectCore.git",
             "https://github.com/HuiSungz/Unity-NetworkConnection-Validator.git",
-            "https://github.com/jackyyang09/Simple-Unity-Audio-Manager.git",
             "https://github.com/ActionFitGames/SerializedDictionary.git"
         };
         
