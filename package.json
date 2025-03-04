@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "displayName": "Unity Project Installer",
   "description": "Unity project install with requirements, dependencies library and package installer",
-  "unity": "2022.3",
+  "unity": "6000.0",
   "author": {
     "name": "ActionFit-HS",
     "email": "huisung@actionfit.kr",
