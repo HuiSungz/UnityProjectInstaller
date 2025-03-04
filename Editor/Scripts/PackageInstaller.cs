@@ -68,9 +68,6 @@ namespace ActionFit.PackageInstaller
             {
                 "jp.hadashikick.vcontainer",
                 "com.cysharp.unitask",
-                "com.coffee.softmask-for-ugui",
-                "com.coffee.ui-effect",
-                "com.coffee.ui-particle",
                 "com.cysharp.zstring"
             });
             
