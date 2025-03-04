@@ -6,7 +6,7 @@ namespace ActionFit.PackageInstaller
 {
     internal class PackageListManager
     {
-        private readonly List<string> _openUPMPackages = new List<string>
+        private readonly List<string> _openUPMPackages = new()
         {
             "jp.hadashikick.vcontainer",
             "com.cysharp.unitask",
@@ -15,9 +15,12 @@ namespace ActionFit.PackageInstaller
             "com.coffee.ui-particle"
         };
 
-        private readonly List<string> _gitPackages = new List<string>
+        private readonly List<string> _gitPackages = new()
         {
-            "https://github.com/HuiSungz/UnityProjectCore.git"
+            "https://github.com/HuiSungz/UnityProjectCore.git",
+            "https://github.com/HuiSungz/Unity-NetworkConnection-Validator.git",
+            "https://github.com/jackyyang09/Simple-Unity-Audio-Manager.git",
+            "https://github.com/ActionFitGames/SerializedDictionary.git"
         };
         
         public List<string> GetAllPackages()
