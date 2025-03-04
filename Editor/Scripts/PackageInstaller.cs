@@ -264,25 +264,20 @@ namespace ActionFit.PackageInstaller
         private static void RemoveInstallerPackage()
         {
             Debug.Log("[패키지 설치] 인스톨러 패키지를 제거합니다...");
-            
+    
             try
             {
-                // 현재 패키지 이름 찾기
-                string packageName = GetCurrentPackageName();
-                if (string.IsNullOrEmpty(packageName))
-                {
-                    Debug.LogError("[패키지 설치] 인스톨러 패키지 이름을 찾을 수 없습니다.");
-                    return;
-                }
-                
+                // 직접 패키지 이름 지정 (인스톨러 패키지의 이름을 고정값으로 설정)
+                string packageName = "com.actionfit.projectinstaller";
+        
                 Debug.Log($"[패키지 설치] 패키지 {packageName} 제거 중...");
-                
+        
                 // 패키지 제거 요청
                 var request = Client.Remove(packageName);
-                
+        
                 // 제거 완료 모니터링
                 DateTime startTime = DateTime.Now;
-                
+        
                 EditorApplication.update += () =>
                 {
                     // 타임아웃 확인
@@ -291,10 +286,10 @@ namespace ActionFit.PackageInstaller
                         Debug.LogWarning("[패키지 설치] 패키지 제거 시간 초과");
                         return;
                     }
-                    
+            
                     if (!request.IsCompleted)
                         return;
-                    
+            
                     if (request.Status == StatusCode.Success)
                     {
                         Debug.Log("[패키지 설치] 인스톨러 패키지 제거 완료");
