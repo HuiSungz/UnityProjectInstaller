@@ -1,4 +1,3 @@
-
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -7,15 +6,57 @@ using UnityEngine;
 
 namespace ActionFit.PackageInstaller
 {
+    [InitializeOnLoad]
     public class PackageInstaller
     {
         private readonly PackageInstallerModel _model;
-        private readonly PackageInstallerView _view;
         private readonly OpenUPMInstaller _openUPMInstaller;
         private readonly GitPackageInstaller _gitInstaller;
         private readonly SelfDestruct _selfDestruct;
+        private PackageInstallerView _view;
         
         private static bool _isProcessing;
+        private const string ProjectInitKey = "ActionFit_ProjectInitialized";
+        private const string NewtonJsonPackage = "com.unity.nuget.newtonsoft-json";
+
+        static PackageInstaller()
+        {
+            EditorApplication.delayCall += () =>
+            {
+                if (_isProcessing)
+                {
+                    return;
+                }
+                
+                var isInitialized = EditorPrefs.GetBool(ProjectInitKey, false);
+                if (isInitialized)
+                {
+                    return;
+                }
+                
+                if (!IsPackageInstalled(NewtonJsonPackage))
+                {
+                    Debug.Log("Newtonsoft.Json 패키지가 설치되어 있지 않습니다. 자동으로 설치를 진행합니다.");
+                    _ = new PackageInstaller().InstallNewtonsoftJson();
+                }
+                else if (!IsDefineSymbolAdded("INSTALL_NEWTON"))
+                {
+                    Debug.Log("Newtonsoft.Json 패키지가 설치되어 있습니다. INSTALL_NEWTON 심볼을 추가합니다.");
+                    AddDefineSymbol("INSTALL_NEWTON");
+                    AssetDatabase.Refresh();
+                    
+                    EditorApplication.delayCall += () =>
+                    {
+                        _ = new PackageInstaller().StartInstallation();
+                    };
+                }
+                else
+                {
+                    Debug.Log("프로젝트 초기화를 시작합니다.");
+                    _ = new PackageInstaller().StartInstallation();
+                }
+            };
+        }
 
         [MenuItem("ActFit/Project Initialize")]
         public static void RunInstaller()
@@ -26,8 +67,41 @@ namespace ActionFit.PackageInstaller
                 return;
             }
             
+            // 프로젝트가 이미 초기화되었는지 확인
+            bool isInitialized = EditorPrefs.GetBool(ProjectInitKey, false);
+            if (isInitialized)
+            {
+                Debug.Log("프로젝트가 이미 초기화되었습니다. 다시 초기화하려면 EditorPrefs에서 ActionFit_ProjectInitialized 값을 제거하세요.");
+                return;
+            }
+            
             _isProcessing = true;
-            _ = new PackageInstaller().StartInstallation();
+            
+            // 뉴턴 JSON 설치가 필요한지 확인
+            if (!IsPackageInstalled(NewtonJsonPackage))
+            {
+                // 아직 설치되지 않았으면 설치 진행
+                Debug.Log("Newtonsoft.Json 패키지가 설치되어 있지 않습니다. 먼저 설치를 진행합니다.");
+                _ = new PackageInstaller().InstallNewtonsoftJson();
+            }
+            else if (!IsDefineSymbolAdded("INSTALL_NEWTON"))
+            {
+                // 패키지는 설치되어 있지만 심볼이 없으면 심볼만 추가
+                Debug.Log("Newtonsoft.Json 패키지가 설치되어 있습니다. INSTALL_NEWTON 심볼을 추가합니다.");
+                AddDefineSymbol("INSTALL_NEWTON");
+                AssetDatabase.Refresh();
+                
+                // 심볼 추가 후 프로젝트 초기화 진행
+                EditorApplication.delayCall += () =>
+                {
+                    _ = new PackageInstaller().StartInstallation();
+                };
+            }
+            else
+            {
+                // 뉴턴 JSON이 설치되어 있고 심볼도 있으면 바로 초기화 진행
+                _ = new PackageInstaller().StartInstallation();
+            }
         }
 
         public PackageInstaller()
@@ -51,10 +125,68 @@ namespace ActionFit.PackageInstaller
             });
         }
 
+        public async Task InstallNewtonsoftJson()
+        {
+            try
+            {
+                _isProcessing = true;
+                _view = new PackageInstallerView();
+                _view.ShowStartMessage();
+                _view.ShowProgressMessage($"Newtonsoft.Json 패키지 설치 중...");
+                
+                // 패키지 설치
+                var request = UnityEditor.PackageManager.Client.Add(NewtonJsonPackage);
+                while (!request.IsCompleted)
+                {
+                    await Task.Delay(100);
+                }
+                
+                if (request.Status == UnityEditor.PackageManager.StatusCode.Success)
+                {
+                    _view.ShowSuccessMessage($"Newtonsoft.Json 패키지 설치 완료!");
+                    
+                    // INSTALL_NEWTON 심볼 추가
+                    AddDefineSymbol("INSTALL_NEWTON");
+                    
+                    _view.ShowSuccessMessage("INSTALL_NEWTON 심볼 추가 완료!");
+                    await Task.Delay(1000);
+                    
+                    // 스크립트가 다시 컴파일될 때까지 대기
+                    _view.ShowProgressMessage("스크립트 리컴파일 중... 잠시 기다려 주세요.");
+                    AssetDatabase.Refresh();
+                    
+                    // 리컴파일 후 프로젝트 초기화 계속 진행
+                    EditorApplication.delayCall += () =>
+                    {
+                        _isProcessing = false;
+                        _ = new PackageInstaller().StartInstallation();
+                    };
+                }
+                else
+                {
+                    _view.ShowErrorMessage($"Newtonsoft.Json 패키지 설치 실패: {request.Error?.message}");
+                    _isProcessing = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                if (_view != null)
+                {
+                    _view.ShowErrorMessage($"Newtonsoft.Json 패키지 설치 중 오류 발생: {ex.Message}");
+                }
+                else
+                {
+                    Debug.LogError($"Newtonsoft.Json 패키지 설치 중 오류 발생: {ex.Message}");
+                }
+                _isProcessing = false;
+            }
+        }
+
         public async Task StartInstallation()
         {
             try
             {
+                _isProcessing = true;
                 _view.ShowStartMessage();
                 
                 // OpenUPM 패키지 설치
@@ -62,6 +194,12 @@ namespace ActionFit.PackageInstaller
                 
                 // Git 패키지 설치
                 await InstallGitPackages();
+                
+                // 설치 완료 표시
+                _view.ShowSuccessMessage("모든 패키지 설치가 완료되었습니다!");
+                
+                // 초기화 완료 플래그 저장
+                EditorPrefs.SetBool(ProjectInitKey, true);
                 
                 // 설치 완료 후 자기 자신 제거
                 _view.ShowSelfDestructMessage();
@@ -110,6 +248,55 @@ namespace ActionFit.PackageInstaller
                 
                 _view.ShowSuccessMessage($"{package} 설치 완료!");
                 await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken: _model.CancellationToken);
+            }
+        }
+        
+        private static bool IsPackageInstalled(string packageName)
+        {
+            var request = UnityEditor.PackageManager.Client.List(true);
+            while (!request.IsCompleted)
+            {
+                System.Threading.Thread.Sleep(100);
+            }
+            
+            if (request.Status == UnityEditor.PackageManager.StatusCode.Success)
+            {
+                foreach (var package in request.Result)
+                {
+                    if (package.name == packageName)
+                    {
+                        return true;
+                    }
+                }
+            }
+            
+            return false;
+        }
+        
+        private static bool IsDefineSymbolAdded(string symbol)
+        {
+            string defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(
+                EditorUserBuildSettings.selectedBuildTargetGroup);
+            
+            return defines.Contains(symbol);
+        }
+        
+        private static void AddDefineSymbol(string symbol)
+        {
+            string defines = PlayerSettings.GetScriptingDefineSymbolsForGroup(
+                EditorUserBuildSettings.selectedBuildTargetGroup);
+            
+            if (!defines.Contains(symbol))
+            {
+                if (defines.Length > 0)
+                {
+                    defines += ";";
+                }
+                
+                defines += symbol;
+                
+                PlayerSettings.SetScriptingDefineSymbolsForGroup(
+                    EditorUserBuildSettings.selectedBuildTargetGroup, defines);
             }
         }
     }
