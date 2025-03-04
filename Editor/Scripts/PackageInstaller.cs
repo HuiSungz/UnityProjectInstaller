@@ -3,10 +3,10 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEditor;
+using UnityEngine;
 
 namespace ActionFit.PackageInstaller
 {
-    [InitializeOnLoad]
     public class PackageInstaller
     {
         private readonly PackageInstallerModel _model;
@@ -15,21 +15,18 @@ namespace ActionFit.PackageInstaller
         private readonly GitPackageInstaller _gitInstaller;
         private readonly SelfDestruct _selfDestruct;
         
-        private static bool _isInitialized;
+        private static bool _isProcessing;
 
-        static PackageInstaller()
+        [MenuItem("ActFit/Project Initialize")]
+        public static void RunInstaller()
         {
-            EditorApplication.delayCall += Initialize;
-        }
-
-        private static void Initialize()
-        {
-            if (_isInitialized)
+            if (_isProcessing)
             {
+                Debug.Log("패키지 설치가 이미 진행 중입니다.");
                 return;
             }
             
-            _isInitialized = true;
+            _isProcessing = true;
             _ = new PackageInstaller().StartInstallation();
         }
 
@@ -79,6 +76,10 @@ namespace ActionFit.PackageInstaller
             catch (Exception ex)
             {
                 _view.ShowErrorMessage(ex.Message);
+            }
+            finally
+            {
+                _isProcessing = false;
             }
         }
 
