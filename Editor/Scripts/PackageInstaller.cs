@@ -47,7 +47,7 @@ namespace ActionFit.PackageInstaller
             
             _model.SetGitPackages(new List<string>
             {
-                "https://github.com/HuiSungz/Unity2D-ProjectSetupProcessor.git"
+                "https://github.com/HuiSungz/UnityProjectCore.git"
             });
         }
 

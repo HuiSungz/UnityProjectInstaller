@@ -1,22 +1,26 @@
 using System;
-using System.Diagnostics;
 using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
+using UnityEditor.PackageManager;
 using UnityEngine;
-using Debug = UnityEngine.Debug;
 
 namespace ActionFit.PackageInstaller
 {
     public class OpenUPMInstaller
     {
+        // manifest.json 파일 경로
+        private static readonly string manifestPath = Path.Combine(Application.dataPath, "../Packages/manifest.json");
+
         public async Task InstallPackage(string packageName)
         {
             try
             {
-                // 먼저 OpenUPM CLI를 통해 패키지 추가
-                await AddPackageUsingCLI(packageName);
+                // OpenUPM 레지스트리 추가 및 패키지 설치
+                EnsureOpenUPMRegistry(packageName);
+                
+                // 패키지 설치 상태 확인
+                await WaitForPackageInstallation(packageName);
             }
             catch (Exception ex)
             {
@@ -25,80 +29,97 @@ namespace ActionFit.PackageInstaller
             }
         }
 
-        private async Task AddPackageUsingCLI(string packageName)
+        private void EnsureOpenUPMRegistry(string packageName)
         {
-            var projectPath = Directory.GetCurrentDirectory();
-            var scopedRegistryContent = $@"{{
-  ""scopedRegistries"": [
-    {{
-      ""name"": ""package.openupm.com"",
-      ""url"": ""https://package.openupm.com"",
-      ""scopes"": [
-        ""com.cysharp.unitask"",
-        ""jp.hadashikick.vcontainer"",
-        ""com.google.external-dependency-manager"",
-        ""com.openupm""
-      ]
-    }}
-  ],
-  ""dependencies"": {{
-    ""{packageName}"": ""latest""
-  }}
-}}";
-
-            var manifestPath = Path.Combine(projectPath, "Packages", "manifest.json");
-            
             if (!File.Exists(manifestPath))
             {
                 throw new FileNotFoundException("manifest.json 파일을 찾을 수 없습니다.");
             }
 
-            // 현재 manifest.json 읽기
-            var manifestContent = File.ReadAllText(manifestPath);
-            
-            // 이미 scopedRegistries가 있는지 확인
-            if (!manifestContent.Contains("\"scopedRegistries\""))
+            // manifest.json 읽기
+            string jsonText = File.ReadAllText(manifestPath);
+            var manifest = JsonUtility.FromJson<ManifestJson>(jsonText);
+            bool modified = false;
+
+            // 직접 JSON 텍스트를 수정하는 방식으로 변경
+            if (!jsonText.Contains("\"scopedRegistries\""))
             {
-                // scopedRegistries가 없으면 추가
-                manifestContent = manifestContent.Replace("{", "{\n  \"scopedRegistries\": [\n    {\n      \"name\": \"package.openupm.com\",\n      \"url\": \"https://package.openupm.com\",\n      \"scopes\": [\n        \"com.cysharp.unitask\",\n        \"jp.hadashikick.vcontainer\",\n        \"com.google.external-dependency-manager\",\n        \"com.openupm\"\n      ]\n    }\n  ],");
+                // scopedRegistries가 없는 경우 새로 추가
+                string scope = GetScopeFromPackageName(packageName);
+                string registryContent = 
+                    "  \"scopedRegistries\": [\n" +
+                    "    {\n" +
+                    "      \"name\": \"OpenUPM\",\n" +
+                    "      \"url\": \"https://package.openupm.com\",\n" +
+                    "      \"scopes\": [\n" +
+                    $"        \"{scope}\"\n" +
+                    "      ]\n" +
+                    "    }\n" +
+                    "  ],\n";
+                
+                jsonText = jsonText.Replace("{", "{\n" + registryContent);
+                modified = true;
             }
-            else if (!manifestContent.Contains("\"url\": \"https://package.openupm.com\""))
+            else if (!jsonText.Contains("\"url\": \"https://package.openupm.com\""))
             {
-                // OpenUPM registry가 없으면 추가
-                var scopedRegistriesIndex = manifestContent.IndexOf("\"scopedRegistries\"");
-                var scopedRegistriesStartIndex = manifestContent.IndexOf("[", scopedRegistriesIndex);
-                var insertPos = scopedRegistriesStartIndex + 1;
+                // OpenUPM registry가 없는 경우 추가
+                string scope = GetScopeFromPackageName(packageName);
+                string registryEntry = 
+                    "    {\n" +
+                    "      \"name\": \"OpenUPM\",\n" +
+                    "      \"url\": \"https://package.openupm.com\",\n" +
+                    "      \"scopes\": [\n" +
+                    $"        \"{scope}\"\n" +
+                    "      ]\n" +
+                    "    },\n";
                 
-                var openUpmRegistry = "\n    {\n      \"name\": \"package.openupm.com\",\n      \"url\": \"https://package.openupm.com\",\n      \"scopes\": [\n        \"com.cysharp.unitask\",\n        \"jp.hadashikick.vcontainer\",\n        \"com.google.external-dependency-manager\",\n        \"com.openupm\"\n      ]\n    },";
-                
-                manifestContent = manifestContent.Insert(insertPos, openUpmRegistry);
+                int index = jsonText.IndexOf("\"scopedRegistries\": [") + "\"scopedRegistries\": [".Length;
+                jsonText = jsonText.Insert(index, "\n" + registryEntry);
+                modified = true;
             }
-            
-            // 패키지가 이미 있는지 확인
-            if (!manifestContent.Contains($"\"{packageName}\""))
+            else
             {
-                // dependencies에 패키지 추가
-                var dependenciesIndex = manifestContent.IndexOf("\"dependencies\"");
-                var dependenciesStartIndex = manifestContent.IndexOf("{", dependenciesIndex);
-                var insertPos = dependenciesStartIndex + 1;
-                
-                var packageEntry = $"\n    \"{packageName}\": \"latest\",";
-                
-                manifestContent = manifestContent.Insert(insertPos, packageEntry);
+                // OpenUPM registry가 있는 경우 scope 추가
+                string scope = GetScopeFromPackageName(packageName);
+                if (!jsonText.Contains($"\"{scope}\""))
+                {
+                    int startIndex = jsonText.IndexOf("\"url\": \"https://package.openupm.com\"");
+                    int scopesIndex = jsonText.IndexOf("\"scopes\": [", startIndex);
+                    int scopesEndIndex = jsonText.IndexOf("]", scopesIndex);
+                    
+                    // 마지막 scope 다음에 새 scope 추가
+                    string scopeEntry = $",\n        \"{scope}\"";
+                    jsonText = jsonText.Insert(scopesEndIndex, scopeEntry);
+                    modified = true;
+                }
+            }
+
+            // 변경된 경우 파일 저장
+            if (modified)
+            {
+                File.WriteAllText(manifestPath, jsonText);
+                Debug.Log("manifest.json을 업데이트했습니다.");
+                AssetDatabase.Refresh();
             }
             
-            // 수정된 manifest.json 저장
-            File.WriteAllText(manifestPath, manifestContent);
-            
-            // Unity Package Manager 리프레시
-            EditorUtility.DisplayProgressBar("패키지 인스톨러", $"{packageName} 설치 중... Unity Package Manager 새로고침", 0.7f);
-            
-            // 비동기 대기
-            await Task.Delay(1000);
-            
-            AssetDatabase.Refresh();
-            
-            // 패키지가 추가될 때까지 대기
+            // 패키지 설치
+            Debug.Log($"패키지 설치 중: {packageName}");
+            Client.Add(packageName);
+        }
+        
+        // 패키지 이름에서 스코프 추출 (com.company.package -> com.company)
+        private string GetScopeFromPackageName(string packageName)
+        {
+            int lastDotIndex = packageName.LastIndexOf('.');
+            if (lastDotIndex > 0)
+            {
+                return packageName.Substring(0, lastDotIndex);
+            }
+            return packageName;
+        }
+        
+        private async Task WaitForPackageInstallation(string packageName)
+        {
             var timeout = TimeSpan.FromMinutes(2);
             var startTime = DateTime.Now;
             
@@ -120,13 +141,13 @@ namespace ActionFit.PackageInstaller
         
         private bool IsPackageInstalled(string packageName)
         {
-            var request = UnityEditor.PackageManager.Client.List(true);
+            var request = Client.List(true);
             while (!request.IsCompleted)
             {
                 System.Threading.Thread.Sleep(100);
             }
             
-            if (request.Status == UnityEditor.PackageManager.StatusCode.Success)
+            if (request.Status == StatusCode.Success)
             {
                 foreach (var package in request.Result)
                 {
@@ -138,6 +159,19 @@ namespace ActionFit.PackageInstaller
             }
             
             return false;
+        }
+        
+        // JSON 직렬화를 위한 클래스 (필요한 경우만 사용)
+        [Serializable]
+        private class ManifestJson
+        {
+            public DependenciesJson dependencies;
+        }
+        
+        [Serializable]
+        private class DependenciesJson
+        {
+            // 동적 필드를 위해 비워둠
         }
     }
 }
