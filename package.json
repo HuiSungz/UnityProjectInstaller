@@ -1,0 +1,23 @@
+{
+  "name": "com.actionfit.projectinstaller",
+  "version": "1.0.0",
+  "displayName": "Unity Project Installer",
+  "description": "Unity project install with requirements, dependencies library and package installer",
+  "unity": "2022.3",
+  "author": {
+    "name": "ActionFit-HS",
+    "email": "huisung@actionfit.kr",
+    "url": "https://github.com/HuiSungz"
+  },
+  "keywords": [
+    "actionfit",
+    "framework",
+    "module",
+    "projecter",
+    "project",
+    "project-initializer",
+    "project-installer",
+    "installer",
+    "unity"
+  ]
+}
