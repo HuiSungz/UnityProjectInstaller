@@ -6,7 +6,6 @@ using UnityEngine;
 
 namespace ActionFit.PackageInstaller
 {
-    [InitializeOnLoad]
     public class PackageInstaller
     {
         private readonly PackageInstallerModel _model;
@@ -16,47 +15,7 @@ namespace ActionFit.PackageInstaller
         private PackageInstallerView _view;
         
         private static bool _isProcessing;
-        private const string ProjectInitKey = "ActionFit_ProjectInitialized";
         private const string NewtonJsonPackage = "com.unity.nuget.newtonsoft-json";
-
-        static PackageInstaller()
-        {
-            EditorApplication.delayCall += () =>
-            {
-                if (_isProcessing)
-                {
-                    return;
-                }
-                
-                var isInitialized = EditorPrefs.GetBool(ProjectInitKey, false);
-                if (isInitialized)
-                {
-                    return;
-                }
-                
-                if (!IsPackageInstalled(NewtonJsonPackage))
-                {
-                    Debug.Log("Newtonsoft.Json 패키지가 설치되어 있지 않습니다. 자동으로 설치를 진행합니다.");
-                    _ = new PackageInstaller().InstallNewtonsoftJson();
-                }
-                else if (!IsDefineSymbolAdded("INSTALL_NEWTON"))
-                {
-                    Debug.Log("Newtonsoft.Json 패키지가 설치되어 있습니다. INSTALL_NEWTON 심볼을 추가합니다.");
-                    AddDefineSymbol("INSTALL_NEWTON");
-                    AssetDatabase.Refresh();
-                    
-                    EditorApplication.delayCall += () =>
-                    {
-                        _ = new PackageInstaller().StartInstallation();
-                    };
-                }
-                else
-                {
-                    Debug.Log("프로젝트 초기화를 시작합니다.");
-                    _ = new PackageInstaller().StartInstallation();
-                }
-            };
-        }
 
         [MenuItem("ActFit/Project Initialize")]
         public static void RunInstaller()
@@ -64,14 +23,6 @@ namespace ActionFit.PackageInstaller
             if (_isProcessing)
             {
                 Debug.Log("패키지 설치가 이미 진행 중입니다.");
-                return;
-            }
-            
-            // 프로젝트가 이미 초기화되었는지 확인
-            bool isInitialized = EditorPrefs.GetBool(ProjectInitKey, false);
-            if (isInitialized)
-            {
-                Debug.Log("프로젝트가 이미 초기화되었습니다. 다시 초기화하려면 EditorPrefs에서 ActionFit_ProjectInitialized 값을 제거하세요.");
                 return;
             }
             
@@ -129,7 +80,6 @@ namespace ActionFit.PackageInstaller
         {
             try
             {
-                _isProcessing = true;
                 _view = new PackageInstallerView();
                 _view.ShowStartMessage();
                 _view.ShowProgressMessage($"Newtonsoft.Json 패키지 설치 중...");
@@ -186,7 +136,6 @@ namespace ActionFit.PackageInstaller
         {
             try
             {
-                _isProcessing = true;
                 _view.ShowStartMessage();
                 
                 // OpenUPM 패키지 설치
@@ -197,9 +146,6 @@ namespace ActionFit.PackageInstaller
                 
                 // 설치 완료 표시
                 _view.ShowSuccessMessage("모든 패키지 설치가 완료되었습니다!");
-                
-                // 초기화 완료 플래그 저장
-                EditorPrefs.SetBool(ProjectInitKey, true);
                 
                 // 설치 완료 후 자기 자신 제거
                 _view.ShowSelfDestructMessage();

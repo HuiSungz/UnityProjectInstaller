@@ -7,34 +7,17 @@ namespace ActionFit.PackageInstaller
 {
     public class SelfDestruct
     {
-        private const string ProjectInitKey = "ActionFit_ProjectInitialized";
-        
         public void RemovePackage()
         {
-            // EditorPrefs 초기화 플래그 제거
-            if (EditorPrefs.HasKey(ProjectInitKey))
-            {
-                EditorPrefs.DeleteKey(ProjectInitKey);
-                Debug.Log("EditorPrefs에서 초기화 플래그가 제거되었습니다.");
-            }
-            
-            // INSTALL_NEWTON 심볼 제거 (필요하다면)
+            // 심볼 제거 (필요하다면)
             if (ShouldRemoveSymbol("INSTALL_NEWTON"))
             {
                 RemoveDefineSymbol("INSTALL_NEWTON");
                 Debug.Log("INSTALL_NEWTON 심볼이 제거되었습니다.");
-                
-                // 심볼 제거 후 리컴파일이 필요하므로 지연 호출로 나머지 작업 진행
-                EditorApplication.delayCall += () =>
-                {
-                    RemovePackageInternal();
-                };
             }
-            else
-            {
-                // 심볼 제거가 필요 없으면 바로 패키지 제거
-                RemovePackageInternal();
-            }
+            
+            // 패키지 제거
+            RemovePackageInternal();
         }
         
         private void RemovePackageInternal()
