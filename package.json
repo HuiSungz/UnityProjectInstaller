@@ -1,6 +1,6 @@
 {
   "name": "com.actionfit.projectinstaller",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "displayName": "Unity Project Installer",
   "description": "자동화된 Unity 프로젝트 초기화 도구로, Newtonsoft.Json, VContainer, UniTask 등 필수 패키지들을 원클릭으로 설치합니다. MVP 패턴 기반으로 구현되어 있으며, OpenUPM 패키지와 Git 패키지를 모두 지원하고, 설치 후 자동 정리 기능을 포함합니다.",
   "unity": "6000.0",

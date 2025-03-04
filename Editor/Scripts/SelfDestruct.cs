@@ -1,22 +1,15 @@
 using System.IO;
 using System.Linq;
 using UnityEditor;
+
 using UnityEngine;
 
 namespace ActionFit.PackageInstaller
 {
     public class SelfDestruct
     {
-        private const string NewtonJsonSymbol = "INSTALL_NEWTON";
-        
         public void RemovePackage()
         {
-            if (EditorSymbolsManager.IsSymbolDefined(NewtonJsonSymbol))
-            {
-                EditorSymbolsManager.RemoveSymbol(NewtonJsonSymbol);
-                Debug.Log("INSTALL_NEWTON 심볼이 제거되었습니다.");
-            }
-            
             RemovePackageInternal();
         }
         

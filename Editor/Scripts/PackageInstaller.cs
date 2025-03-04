@@ -10,16 +10,15 @@ namespace ActionFit.PackageInstaller
     public class PackageInstaller
     {
         private readonly PackageInstallerModel _model;
-        private readonly OpenUPMInstaller _openUPMInstaller;
+        private readonly SimpleOpenUPMInstaller _openUPMInstaller;
         private readonly GitPackageInstaller _gitInstaller;
         private readonly SelfDestruct _selfDestruct;
         private PackageInstallerView _view;
         
         private static bool _isProcessing;
-        private const string NewtonJsonSymbol = "INSTALL_NEWTON";
-
-        [MenuItem("ActFit/Project Initialize")]
-        public static void RunInstaller()
+        
+        [MenuItem("ActFit/Project Initialize Safe")]
+        public static void RunInstallerSafe()
         {
             if (_isProcessing)
             {
@@ -29,25 +28,31 @@ namespace ActionFit.PackageInstaller
             
             _isProcessing = true;
             
-            if (!NewtonJsonInstaller.IsInstalled())
+            try
             {
-                Debug.Log("Newtonsoft.Json 패키지가 설치되어 있지 않습니다. 먼저 설치를 진행합니다.");
                 var installer = new PackageInstaller();
-                var newtonInstaller = new NewtonJsonInstaller(installer._view);
-                _ = newtonInstaller.Install().ContinueWith(_ => { _isProcessing = false; });
-            }
-            else if (!NewtonJsonInstaller.IsSymbolDefined())
-            {
-                Debug.Log("Newtonsoft.Json 패키지가 설치되어 있습니다. INSTALL_NEWTON 심볼을 추가합니다.");
-                EditorSymbolsManager.AddSymbol(NewtonJsonSymbol);
-                AssetDatabase.Refresh();
                 
-                Debug.Log("심볼 추가가 완료되었습니다. Unity 에디터가 리컴파일을 완료한 후 다시 'ActFit/Project Initialize' 메뉴를 클릭해주세요.");
-                _isProcessing = false;
+                // Task를 Fire-and-forget으로 실행하지 않고 동기적으로 처리
+                EditorApplication.delayCall += async () =>
+                {
+                    try
+                    {
+                        await installer.StartInstallation();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"패키지 설치 중 오류 발생: {ex.Message}");
+                    }
+                    finally
+                    {
+                        _isProcessing = false;
+                    }
+                };
             }
-            else
+            catch (Exception ex)
             {
-                _ = new PackageInstaller().StartInstallation();
+                Debug.LogError($"패키지 설치 초기화 중 오류 발생: {ex.Message}");
+                _isProcessing = false;
             }
         }
 
@@ -55,7 +60,7 @@ namespace ActionFit.PackageInstaller
         {
             _model = new PackageInstallerModel();
             _view = new PackageInstallerView();
-            _openUPMInstaller = new OpenUPMInstaller();
+            _openUPMInstaller = new SimpleOpenUPMInstaller();
             _gitInstaller = new GitPackageInstaller();
             _selfDestruct = new SelfDestruct();
             
@@ -96,10 +101,6 @@ namespace ActionFit.PackageInstaller
             catch (Exception ex)
             {
                 _view.ShowErrorMessage(ex.Message);
-            }
-            finally
-            {
-                _isProcessing = false;
             }
         }
 
