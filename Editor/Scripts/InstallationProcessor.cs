@@ -1,4 +1,3 @@
-
 using System;
 using System.Collections.Generic;
 using UnityEditor;
@@ -61,10 +60,27 @@ namespace ActionFit.PackageInstaller
                 $"({index + 1}/{_stateManager.TotalPackages}) {packageIdentifier}",
                 (float)index / _stateManager.TotalPackages);
 
-            var task = new PackageInstallationTask(packageIdentifier);
+            // 유니티 레지스트리 패키지인지 확인
+            bool isUnityRegistryPackage = _listManager.GetUnityRegistryPackages().Contains(packageIdentifier);
+            
+            var task = new PackageInstallationTask(packageIdentifier, isUnityRegistryPackage);
             task.Start(success =>
             {
-                var delayFrames = task.IsGitPackage() ? 20 : 10;
+                // 패키지 타입에 따라 다른 지연 시간 적용
+                int delayFrames;
+                if (task.IsGitPackage())
+                {
+                    delayFrames = 20;
+                }
+                else if (task.IsUnityRegistryPackage())
+                {
+                    delayFrames = 15; // Unity 패키지는 중간 정도의 지연
+                }
+                else
+                {
+                    delayFrames = 10;
+                }
+                
                 DelayedCall(delayFrames, () =>
                 {
                     _stateManager.CurrentPackageIndex++;

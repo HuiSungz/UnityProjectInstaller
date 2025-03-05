@@ -1,4 +1,3 @@
-
 using System;
 using UnityEditor;
 using UnityEditor.PackageManager;
@@ -13,19 +12,31 @@ namespace ActionFit.PackageInstaller
         private DateTime _startTime;
         private readonly string _packageName;
         private readonly bool _isGitPackage;
-        private readonly float _timeoutSeconds = 30f;
+        private readonly bool _isUnityRegistryPackage;
+        private readonly float _timeoutSeconds;
 
-        public PackageInstallationTask(string packageIdentifier)
+        public PackageInstallationTask(string packageIdentifier, bool isUnityRegistryPackage = false)
         {
             if (packageIdentifier.StartsWith("git:"))
             {
                 _isGitPackage = true;
+                _isUnityRegistryPackage = false;
                 _packageName = packageIdentifier[4..]; // "git:" 제거
+                _timeoutSeconds = 60f; // Git 패키지는 더 오래 걸릴 수 있음
+            }
+            else if (isUnityRegistryPackage)
+            {
+                _isGitPackage = false;
+                _isUnityRegistryPackage = true;
+                _packageName = packageIdentifier;
+                _timeoutSeconds = 90f; // Unity 레지스트리 패키지는 크기가 클 수 있으므로 더 긴 타임아웃
             }
             else
             {
                 _isGitPackage = false;
+                _isUnityRegistryPackage = false;
                 _packageName = packageIdentifier;
+                _timeoutSeconds = 30f; // 기본 타임아웃
             }
         }
 
@@ -80,6 +91,11 @@ namespace ActionFit.PackageInstaller
         public bool IsGitPackage()
         {
             return _isGitPackage;
+        }
+        
+        public bool IsUnityRegistryPackage()
+        {
+            return _isUnityRegistryPackage;
         }
     }
 }
